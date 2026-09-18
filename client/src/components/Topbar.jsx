@@ -1,5 +1,1 @@
-import React from 'react';
-
-export default function Topbar({ search, setSearch, setShowInvite, flash }) {
-  return <header className="topbar"><div className="searchbox"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search repositories, chats or members" /></div><div className="topbar-actions"><button className="top-btn" onClick={() => flash('No new notifications')}>Bell</button><button className="top-btn" onClick={() => setShowInvite(true)}>Invite</button></div></header>;
-}
+export default function Topbar({ query, setQuery, openInvite, flash }) { return <header className="topbar"><label className="search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search repositories, chats or members" /></label><div className="top-actions"><button onClick={() => flash('No new notifications')}>Bell</button><button onClick={openInvite}>Invite</button></div></header>; }

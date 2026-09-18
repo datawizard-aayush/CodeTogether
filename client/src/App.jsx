@@ -5,52 +5,55 @@ import ChatPanel from './components/ChatPanel';
 import MemberPanel from './components/MemberPanel';
 import ActivityView from './components/ActivityView';
 import { CreateRepoModal, InviteModal } from './components/Modals';
-import { STORAGE_KEY, seedState, loadState } from './data/demoData';
+import { STORAGE_KEY, seedState } from './data/demoData';
+
+const readState = () => {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || seedState; } catch { return seedState; }
+};
 
 export default function App() {
-  const [state, setState] = useState(loadState);
-  const [selectedRepoId, setSelectedRepoId] = useState('repo-1');
-  const [search, setSearch] = useState('');
+  const [state, setState] = useState(readState);
+  const [repoId, setRepoId] = useState('repo-1');
+  const [view, setView] = useState('workspace');
+  const [query, setQuery] = useState('');
   const [draft, setDraft] = useState('');
-  const [showCreate, setShowCreate] = useState(false);
-  const [showInvite, setShowInvite] = useState(false);
-  const [activeView, setActiveView] = useState('workspace');
   const [notice, setNotice] = useState('');
-  const [repoForm, setRepoForm] = useState({ name: '', description: '', isPrivate: true, language: 'JavaScript' });
+  const [createOpen, setCreateOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [repoForm, setRepoForm] = useState({ name: '', description: '', language: 'JavaScript', isPrivate: true });
 
-  useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }, [state]);
-
-  const selectedRepo = state.repos.find((repo) => repo.id === selectedRepoId) || state.repos[0];
-  const visibleRepos = useMemo(() => state.repos.filter((repo) => `${repo.name} ${repo.description}`.toLowerCase().includes(search.toLowerCase())), [state.repos, search]);
+  useEffect(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(state)), [state]);
+  const repo = state.repos.find((item) => item.id === repoId) || state.repos[0];
+  const repos = useMemo(() => state.repos.filter((item) => `${item.name} ${item.description}`.toLowerCase().includes(query.toLowerCase())), [state.repos, query]);
   const flash = (message) => { setNotice(message); window.setTimeout(() => setNotice(''), 2200); };
 
   const sendMessage = (event) => {
     event.preventDefault();
     const text = draft.trim();
-    if (!text || !selectedRepo) return;
-    setState((current) => ({ ...current, repos: current.repos.map((repo) => repo.id === selectedRepo.id ? { ...repo, messages: [...repo.messages, { id: `m-${Date.now()}`, authorId: current.user.id, author: current.user.name, text, createdAt: 'now' }] } : repo) }));
+    if (!text || !repo) return;
+    setState((current) => ({ ...current, repos: current.repos.map((item) => item.id === repo.id ? { ...item, messages: [...item.messages, { id: `m-${Date.now()}`, authorId: current.user.id, author: current.user.name, text, createdAt: 'now' }] } : item) }));
     setDraft('');
   };
 
   const createRepository = (event) => {
     event.preventDefault();
     if (!repoForm.name.trim()) return;
-    const repo = { id: `repo-${Date.now()}`, name: repoForm.name.trim(), description: repoForm.description.trim() || 'A new CodeTogether workspace.', isPrivate: repoForm.isPrivate, language: repoForm.language, color: repoForm.language === 'TypeScript' ? '#3178c6' : '#f7df1e', members: [{ id: state.user.id, name: state.user.name, role: 'Owner', online: true }], messages: [] };
-    setState((current) => ({ ...current, repos: [repo, ...current.repos] }));
-    setSelectedRepoId(repo.id); setRepoForm({ name: '', description: '', isPrivate: true, language: 'JavaScript' }); setShowCreate(false); flash('Repository created locally');
+    const created = { id: `repo-${Date.now()}`, name: repoForm.name.trim(), description: repoForm.description.trim() || 'A new CodeTogether workspace.', language: repoForm.language, isPrivate: repoForm.isPrivate, color: '#f7df1e', members: [{ id: state.user.id, name: state.user.name, role: 'Owner', online: true }], messages: [] };
+    setState((current) => ({ ...current, repos: [created, ...current.repos] }));
+    setRepoId(created.id); setCreateOpen(false); setRepoForm({ name: '', description: '', language: 'JavaScript', isPrivate: true }); flash('Repository created');
   };
 
-  const inviteMember = (event) => { event.preventDefault(); if (!inviteEmail.trim()) return; flash(`Invite prepared for ${inviteEmail.trim()}`); setInviteEmail(''); setShowInvite(false); };
-  const resetDemo = () => { setState(seedState); setSelectedRepoId('repo-1'); flash('Demo data reset'); };
+  const prepareInvite = (event) => { event.preventDefault(); if (!inviteEmail.trim()) return; flash(`Invite prepared for ${inviteEmail}`); setInviteEmail(''); setInviteOpen(false); };
+  const reset = () => { setState(seedState); setRepoId('repo-1'); flash('Demo data reset'); };
 
-  return <div className="dashboard-shell">
-    <Sidebar state={state} selectedRepo={selectedRepo} visibleRepos={visibleRepos} activeView={activeView} setActiveView={setActiveView} setSelectedRepoId={setSelectedRepoId} setShowCreate={setShowCreate} flash={flash} resetDemo={resetDemo} />
-    <main className="content-area"><Topbar search={search} setSearch={setSearch} setShowInvite={setShowInvite} flash={flash} />
-      {selectedRepo && <><div className="repo-header"><div><p className="crumb">Repositories / {selectedRepo.name}</p><h2>{selectedRepo.name}</h2><p>{selectedRepo.description}</p></div><div className="repo-badges"><span className={`pill ${selectedRepo.isPrivate ? 'private' : 'public'}`}>{selectedRepo.isPrivate ? 'Private' : 'Public'}</span><span className="pill neutral">{selectedRepo.language}</span></div></div><div className="repo-tabs"><button className={activeView === 'workspace' ? 'active' : ''} onClick={() => setActiveView('workspace')}>Workspace</button><button onClick={() => flash('Code browser will be added next')}>Code</button><button onClick={() => flash('Issue tracking will be added next')}>Issues <span>0</span></button><button onClick={() => flash('Pull requests will be added next')}>Pull requests</button></div>{activeView === 'workspace' ? <div className="workspace-grid"><ChatPanel selectedRepo={selectedRepo} currentUser={state.user} draft={draft} setDraft={setDraft} sendMessage={sendMessage} /><MemberPanel selectedRepo={selectedRepo} setShowInvite={setShowInvite} /></div> : <ActivityView repos={state.repos} />}</>}
+  return <div className="app-shell">
+    <Sidebar state={state} repo={repo} repos={repos} view={view} setView={setView} setRepoId={setRepoId} openCreate={() => setCreateOpen(true)} reset={reset} flash={flash} />
+    <main className="main"><Topbar query={query} setQuery={setQuery} openInvite={() => setInviteOpen(true)} flash={flash} />
+      {repo && <><header className="repo-header"><div><p className="eyebrow">Repositories / {repo.name}</p><h1>{repo.name}</h1><p>{repo.description}</p></div><div className="badges"><span className={`badge ${repo.isPrivate ? 'private' : 'public'}`}>{repo.isPrivate ? 'Private' : 'Public'}</span><span className="badge language">{repo.language}</span></div></header><nav className="tabs"><button className={view === 'workspace' ? 'active' : ''} onClick={() => setView('workspace')}>Workspace</button><button onClick={() => flash('Code browser is next')}>Code</button><button onClick={() => flash('Issues are next')}>Issues</button><button onClick={() => flash('Pull requests are next')}>Pull requests</button></nav>{view === 'workspace' ? <div className="workspace"><ChatPanel repo={repo} user={state.user} draft={draft} setDraft={setDraft} sendMessage={sendMessage} /><MemberPanel repo={repo} openInvite={() => setInviteOpen(true)} /></div> : <ActivityView repos={state.repos} />}</>}
     </main>
-    {showCreate && <CreateRepoModal repoForm={repoForm} setRepoForm={setRepoForm} onSubmit={createRepository} close={() => setShowCreate(false)} />}
-    {showInvite && <InviteModal selectedRepo={selectedRepo} inviteEmail={inviteEmail} setInviteEmail={setInviteEmail} onSubmit={inviteMember} close={() => setShowInvite(false)} />}
+    {createOpen && <CreateRepoModal form={repoForm} setForm={setRepoForm} submit={createRepository} close={() => setCreateOpen(false)} />}
+    {inviteOpen && <InviteModal repo={repo} email={inviteEmail} setEmail={setInviteEmail} submit={prepareInvite} close={() => setInviteOpen(false)} />}
     {notice && <div className="toast">✓ {notice}</div>}
   </div>;
 }

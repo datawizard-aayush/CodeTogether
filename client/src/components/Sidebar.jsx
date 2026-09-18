@@ -1,12 +1,4 @@
-import React from 'react';
-import { initials } from '../data/demoData';
-
-export default function Sidebar({ state, selectedRepo, visibleRepos, activeView, setActiveView, setSelectedRepoId, setShowCreate, flash, resetDemo }) {
-  return <aside className="sidebar">
-    <div className="brand-row"><div className="brand-logo">&lt;/&gt;</div><div><strong>CodeTogether</strong><small>Local prototype</small></div></div>
-    <div className="sidebar-section"><p className="label">Repositories</p><button className="new-repo-btn" onClick={() => setShowCreate(true)}>+ New repository</button></div>
-    <div className="repo-list">{visibleRepos.map((repo) => <button key={repo.id} className={`repo-item ${repo.id === selectedRepo?.id ? 'active' : ''}`} onClick={() => { setSelectedRepoId(repo.id); setActiveView('workspace'); }}><span className="dot" style={{ background: repo.color }} /><span>{repo.name}</span><small>{repo.messages.length || ''}</small></button>)}</div>
-    <nav className="sidebar-nav"><button className={activeView === 'workspace' ? 'active' : ''} onClick={() => setActiveView('workspace')}>💬 Workspace</button><button className={activeView === 'activity' ? 'active' : ''} onClick={() => setActiveView('activity')}>▣ Activity</button><button onClick={() => flash('Settings will be connected later')}>⚙ Settings</button></nav>
-    <div className="user-box"><div className="avatar-circle">{initials(state.user.name)}</div><div><strong>{state.user.name}</strong><small>{state.user.email}</small></div><button className="logout-btn" onClick={resetDemo}>Reset</button></div>
-  </aside>;
+export default function Sidebar({ state, repo, repos, view, setView, setRepoId, openCreate, reset, flash }) {
+  const initials = state.user.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+  return <aside className="sidebar"><div className="brand"><span className="logo">&lt;/&gt;</span><span><strong>CodeTogether</strong><small>React workspace</small></span></div><div className="section-title"><span>Repositories</span><button onClick={openCreate}>+ New</button></div><div className="repo-list">{repos.map((item) => <button className={`repo-link ${item.id === repo?.id ? 'selected' : ''}`} key={item.id} onClick={() => { setRepoId(item.id); setView('workspace'); }}><i style={{ background: item.color }} />{item.name}<small>{item.messages.length || ''}</small></button>)}</div><div className="side-nav"><button className={view === 'workspace' ? 'selected' : ''} onClick={() => setView('workspace')}>💬 Workspace</button><button className={view === 'activity' ? 'selected' : ''} onClick={() => setView('activity')}>▣ Activity</button><button onClick={() => flash('Settings will be connected later')}>⚙ Settings</button></div><div className="profile"><span className="avatar">{initials}</span><span><strong>{state.user.name}</strong><small>{state.user.email}</small></span><button onClick={reset}>Reset</button></div></aside>;
 }

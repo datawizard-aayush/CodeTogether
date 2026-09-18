@@ -1,22 +1,25 @@
 # CodeTogether
 
-CodeTogether is a local-first collaboration workspace inspired by GitHub and WhatsApp: repositories have their own team chat, members, activity, and project controls.
+CodeTogether is a GitHub + WhatsApp inspired collaboration workspace. Each repository has its own members, chat, activity feed, and project controls.
 
-## Current phase: frontend first
+## Current implementation
 
-The React client currently runs without MongoDB, Express, or authentication services. It uses seeded demo data and `localStorage`, so you can build and test the experience immediately:
+### Frontend
 
-- repository switcher
-- repository search
+The React/Vite frontend is in `client/` and currently works without a database:
+
+- repository switching and search
 - local repository creation
-- repository-specific chat
-- persisted messages between refreshes
-- members panel
-- invite modal placeholder
+- repository-scoped chat
+- member presence panel
 - activity view
-- responsive workspace UI
+- invite flow placeholder
+- browser persistence through `localStorage`
+- responsive UI
 
-MongoDB and the API scaffold are intentionally kept for the later integration phase.
+### Backend
+
+The root contains the Node/Express/Socket.IO backend foundation. MongoDB is deliberately optional for the current UI phase and can be connected later through the existing models and routes.
 
 ## Run the frontend
 
@@ -28,27 +31,28 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-To reset the local demo state, use the **Reset** button in the sidebar or clear the `codetogether_demo_state` value from browser local storage.
+## Run the backend later
 
-## Later MERN integration
+```bash
+npm install
+cp .env.example .env
+npm run dev
+```
 
-The root contains the planned Express/Mongoose/Socket.IO backend scaffold. When the UI is ready, the next integration will replace the local state layer with:
+The backend exposes authentication, repository, message, and Socket.IO room foundations. Connect the frontend to those APIs when MongoDB is ready.
 
-- MongoDB user, repository, member, and message models
-- JWT login and registration
-- REST repository and message APIs
-- Socket.IO repository rooms and typing events
-- real invitations and permissions
-
-## Project structure
+## Structure
 
 ```text
-CodeTogetherLanding.jsx   # original standalone design
-client/                    # current local-first React app
-config/                    # later MongoDB configuration
-middleware/                # later auth middleware
-models/                    # later Mongoose models
-routes/                    # later Express routes
-sockets/                   # later Socket.IO events
-server.js                  # later API entry point
+client/src/App.jsx
+client/src/components/
+client/src/data/demoData.js
+client/src/main.jsx
+client/src/index.css
+server.js
+config/
+models/
+routes/
+middleware/
+sockets/
 ```

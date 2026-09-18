@@ -1,18 +1,7 @@
 export const STORAGE_KEY = 'codetogether_demo_state';
-
-export const seedState = {
-  user: { id: 'u-1', name: 'Ronak Kumar', email: 'ronak@example.com' },
-  repos: [
-    { id: 'repo-1', name: 'CodeTogether', description: 'Build together, ship together.', isPrivate: false, language: 'JavaScript', color: '#f7df1e', members: [{ id: 'u-1', name: 'Ronak Kumar', role: 'Owner', online: true }, { id: 'u-2', name: 'Priya Sharma', role: 'Maintainer', online: true }, { id: 'u-3', name: 'Marcus Chen', role: 'Developer', online: false }, { id: 'u-4', name: 'Elena Rossi', role: 'Designer', online: true }], messages: [{ id: 'm-1', authorId: 'u-2', author: 'Priya Sharma', text: 'The new repository screen is looking great. I pushed the auth flow to feature/auth.', createdAt: '10:18 AM' }, { id: 'm-2', authorId: 'u-3', author: 'Marcus Chen', text: 'Nice! Chat should stay scoped to repository members.', createdAt: '10:21 AM' }, { id: 'm-3', authorId: 'u-1', author: 'Ronak Kumar', text: 'Agreed. Let us ship the first pass today.', createdAt: '10:24 AM' }] },
-    { id: 'repo-2', name: 'design-system', description: 'Shared UI primitives for the team.', isPrivate: true, language: 'TypeScript', color: '#3178c6', members: [{ id: 'u-1', name: 'Ronak Kumar', role: 'Owner', online: true }, { id: 'u-4', name: 'Elena Rossi', role: 'Designer', online: true }], messages: [{ id: 'm-4', authorId: 'u-4', author: 'Elena Rossi', text: 'The button states are ready for review.', createdAt: 'Yesterday' }] },
-    { id: 'repo-3', name: 'api-gateway', description: 'The collaboration API service.', isPrivate: true, language: 'Node.js', color: '#68a063', members: [{ id: 'u-1', name: 'Ronak Kumar', role: 'Owner', online: true }, { id: 'u-3', name: 'Marcus Chen', role: 'Developer', online: false }], messages: [] }
-  ]
-};
-
-export function loadState() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || seedState; } catch { return seedState; }
-}
-
-export function initials(name = '') {
-  return name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase() || 'U';
-}
+export const seedState = { user: { id: 'u-1', name: 'Ronak Kumar', email: 'ronak@example.com' }, repos: [
+  { id: 'repo-1', name: 'CodeTogether', description: 'Build together, ship together.', language: 'JavaScript', isPrivate: false, color: '#f7df1e', members: [{ id: 'u-1', name: 'Ronak Kumar', role: 'Owner', online: true }, { id: 'u-2', name: 'Priya Sharma', role: 'Maintainer', online: true }, { id: 'u-3', name: 'Marcus Chen', role: 'Developer', online: false }, { id: 'u-4', name: 'Elena Rossi', role: 'Designer', online: true }], messages: [{ id: 'm-1', authorId: 'u-2', author: 'Priya Sharma', text: 'The new repository screen is looking great. I pushed the auth flow to feature/auth.', createdAt: '10:18 AM' }, { id: 'm-2', authorId: 'u-3', author: 'Marcus Chen', text: 'Chat should stay scoped to repository members.', createdAt: '10:21 AM' }, { id: 'm-3', authorId: 'u-1', author: 'Ronak Kumar', text: 'Agreed. Let us ship the first pass today.', createdAt: '10:24 AM' }] },
+  { id: 'repo-2', name: 'design-system', description: 'Shared UI primitives for the team.', language: 'TypeScript', isPrivate: true, color: '#3178c6', members: [{ id: 'u-1', name: 'Ronak Kumar', role: 'Owner', online: true }, { id: 'u-4', name: 'Elena Rossi', role: 'Designer', online: true }], messages: [{ id: 'm-4', authorId: 'u-4', author: 'Elena Rossi', text: 'The button states are ready for review.', createdAt: 'Yesterday' }] },
+  { id: 'repo-3', name: 'api-gateway', description: 'The collaboration API service.', language: 'Node.js', isPrivate: true, color: '#68a063', members: [{ id: 'u-1', name: 'Ronak Kumar', role: 'Owner', online: true }, { id: 'u-3', name: 'Marcus Chen', role: 'Developer', online: false }], messages: [] }
+] };
+export const initials = (name = '') => name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase() || 'U';
