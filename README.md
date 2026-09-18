@@ -1,75 +1,54 @@
-# CodeTogether MERN Setup
+# CodeTogether
 
-This project is the backend foundation for a GitHub + WhatsApp style collaboration app.
+CodeTogether is a local-first collaboration workspace inspired by GitHub and WhatsApp: repositories have their own team chat, members, activity, and project controls.
 
-## Features
+## Current phase: frontend first
 
-- User authentication with JWT
-- Repository creation and membership logic
-- Repository-specific chat rooms
-- Real-time messaging with Socket.IO
-- MongoDB data models for users, repos, and messages
+The React client currently runs without MongoDB, Express, or authentication services. It uses seeded demo data and `localStorage`, so you can build and test the experience immediately:
 
-## Tech stack
+- repository switcher
+- repository search
+- local repository creation
+- repository-specific chat
+- persisted messages between refreshes
+- members panel
+- invite modal placeholder
+- activity view
+- responsive workspace UI
 
-- MongoDB + Mongoose
-- Express.js
-- React + JSX frontend
-- Socket.IO
-- Node.js
+MongoDB and the API scaffold are intentionally kept for the later integration phase.
 
-## Installation
+## Run the frontend
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
+```bash
+cd client
+npm install
+npm run dev
+```
 
-2. Create a local MongoDB instance or update your connection string in `.env`.
+Open `http://localhost:3000`.
 
-3. Copy `.env.example` to `.env` and change values as needed:
-   ```bash
-   cp .env.example .env
-   ```
+To reset the local demo state, use the **Reset** button in the sidebar or clear the `codetogether_demo_state` value from browser local storage.
 
-4. Start the API:
-   ```bash
-   npm run dev
-   ```
+## Later MERN integration
 
-## API routes
+The root contains the planned Express/Mongoose/Socket.IO backend scaffold. When the UI is ready, the next integration will replace the local state layer with:
 
-### Auth
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `GET /api/auth/me`
+- MongoDB user, repository, member, and message models
+- JWT login and registration
+- REST repository and message APIs
+- Socket.IO repository rooms and typing events
+- real invitations and permissions
 
-### Repositories
-- `GET /api/repos`
-- `POST /api/repos`
-- `GET /api/repos/:id`
-- `POST /api/repos/:id/join`
-- `GET /api/repos/:id/members`
+## Project structure
 
-### Messages
-- `GET /api/messages/:repoId`
-- `POST /api/messages/:repoId`
-
-## Real-time events
-
-- `join-repo`
-- `typing`
-- `send-message`
-- `new-message`
-
-## Notes
-
-Your existing `CodeTogetherLanding.jsx` file is the frontend landing page. This backend is the next step for the MERN app and will support real repository membership and chat features.
-
-## Next step
-
-Next, we can build the React frontend pages for:
-- login/signup
-- repo dashboard
-- repository chat room
-- project members panel
+```text
+CodeTogetherLanding.jsx   # original standalone design
+client/                    # current local-first React app
+config/                    # later MongoDB configuration
+middleware/                # later auth middleware
+models/                    # later Mongoose models
+routes/                    # later Express routes
+sockets/                   # later Socket.IO events
+server.js                  # later API entry point
+```
