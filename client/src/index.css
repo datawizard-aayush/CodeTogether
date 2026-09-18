@@ -1,0 +1,470 @@
+import { useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
+import { io } from 'socket.io-client';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+const socket = io('http://localhost:5000', { autoConnect: false });
+
+const createAuthHeader = (token) => ({
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
+});
+
+const emptyForm = {
+  name: '',
+  email: '',
+  password: '',
+};
+
+const emptyRepoForm = {
+  name: '',
+  description: '',
+  isPrivate: true,
+  language: 'JavaScript',
+};
+
+function App() {
+  const [token, setToken] = useState(localStorage.getItem('codetogether_token') || '');
+  const [authMode, setAuthMode] = useState('login');
+  const [authForm, setAuthForm] = useState(emptyForm);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [repos, setRepos] = useState([]);
+  const [selectedRepoId, setSelectedRepoId] = useState('');
+  const [repoForm, setRepoForm] = useState(emptyRepoForm);
+  const [messages, setMessages] = useState([]);
+  const [messageText, setMessageText] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showCreateRepo, setShowCreateRepo] = useState(false);
+  const [tempTypingUser, setTempTypingUser] = useState('');
+
+  const selectedRepo = useMemo(
+    () => repos.find((repo) => repo._id === selectedRepoId) || null,
+    [repos, selectedRepoId]
+  );
+
+  useEffect(() => {
+    if (!token) return;
+    fetchCurrentUser();
+    fetchRepos();
+  }, [token]);
+
+  useEffect(() => {
+    if (!selectedRepoId || !token) return;
+    fetchMessages(selectedRepoId);
+
+    socket.connect();
+    socket.emit('join-repo', selectedRepoId);
+
+    socket.on('new-message', (incoming) => {
+      setMessages((prev) => {
+        const exists = prev.some((msg) => msg._id === incoming._id);
+        if (exists) return prev;
+        return [...prev, incoming];
+      });
+    });
+
+    socket.on('typing', ({ userName }) => {
+      if (userName) setTempTypingUser(userName);
+      setTimeout(() => setTempTypingUser(''), 1200);
+    });
+
+    return () => {
+      socket.off('new-message');
+      socket.off('typing');
+      socket.disconnect();
+    };
+  }, [selectedRepoId, token]);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/auth/me`, createAuthHeader(token));
+      setCurrentUser(res.data);
+    } catch (err) {
+      logout();
+    }
+  };
+
+  const fetchRepos = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/repos`, createAuthHeader(token));
+      setRepos(res.data);
+      if (!selectedRepoId && res.data.length) {
+        setSelectedRepoId(res.data[0]._id);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchMessages = async (repoId) => {
+    try {
+      const res = await axios.get(`${API_BASE}/messages/${repoId}`, createAuthHeader(token));
+      setMessages(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const url = authMode === 'login' ? `${API_BASE}/auth/login` : `${API_BASE}/auth/register`;
+      const payload = authMode === 'login' ? { email: authForm.email, password: authForm.password } : authForm;
+      const res = await axios.post(url, payload);
+      localStorage.setItem('codetogether_token', res.data.token);
+      setToken(res.data.token);
+      setCurrentUser(res.data);
+      setAuthForm(emptyForm);
+      setSuccess(authMode === 'login' ? 'Login successful' : 'Account created successfully');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Authentication failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateRepo = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const res = await axios.post(`${API_BASE}/repos`, repoForm, createAuthHeader(token));
+      setRepos((prev) => [res.data, ...prev]);
+      setSelectedRepoId(res.data._id);
+      setRepoForm(emptyRepoForm);
+      setShowCreateRepo(false);
+      setSuccess('Repository created');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not create repository');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!messageText.trim() || !selectedRepoId) return;
+
+    try {
+      const res = await axios.post(
+        `${API_BASE}/messages/${selectedRepoId}`,
+        { text: messageText },
+        createAuthHeader(token)
+      );
+
+      socket.emit('send-message', { repoId: selectedRepoId, message: res.data });
+      setMessages((prev) => [...prev, res.data]);
+      setMessageText('');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to send message');
+    }
+  };
+
+  const handleTyping = () => {
+    if (selectedRepoId && currentUser?.name) {
+      socket.emit('typing', { repoId: selectedRepoId, userName: currentUser.name });
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('codetogether_token');
+    setToken('');
+    setCurrentUser(null);
+    setRepos([]);
+    setMessages([]);
+    setSelectedRepoId('');
+  };
+
+  if (!token) {
+    return (
+      <div className="auth-shell">
+        <div className="auth-card">
+          <div className="brand-block">
+            <span className="brand-logo">&lt;/&gt;</span>
+            <h1>CodeTogether</h1>
+            <p>GitHub meets WhatsApp for repository teams.</p>
+          </div>
+
+          <form onSubmit={handleAuthSubmit} className="auth-form">
+            <div className="tab-toggle">
+              <button
+                type="button"
+                className={authMode === 'login' ? 'active' : ''}
+                onClick={() => setAuthMode('login')}
+              >
+                Login
+              </button>
+              <button
+                type="button"
+                className={authMode === 'register' ? 'active' : ''}
+                onClick={() => setAuthMode('register')}
+              >
+                Register
+              </button>
+            </div>
+
+            {authMode === 'register' && (
+              <label>
+                Full name
+                <input
+                  value={authForm.name}
+                  onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
+                  placeholder="Ronak Kumar"
+                />
+              </label>
+            )}
+
+            <label>
+              Email
+              <input
+                type="email"
+                value={authForm.email}
+                onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+                placeholder="you@example.com"
+              />
+            </label>
+
+            <label>
+              Password
+              <input
+                type="password"
+                value={authForm.password}
+                onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                placeholder="********"
+              />
+            </label>
+
+            {error && <p className="message error">{error}</p>}
+            {success && <p className="message success">{success}</p>}
+
+            <button type="submit" className="primary-btn" disabled={loading}>
+              {loading ? 'Please wait...' : authMode === 'login' ? 'Login' : 'Create account'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="dashboard-shell">
+      <aside className="sidebar">
+        <div className="brand-row">
+          <div className="brand-logo">&lt;/&gt;</div>
+          <div>
+            <strong>CodeTogether</strong>
+            <small>Developer workspace</small>
+          </div>
+        </div>
+
+        <div className="sidebar-section">
+          <p className="label">Repositories</p>
+          <button className="new-repo-btn" onClick={() => setShowCreateRepo(true)}>
+            + New repository
+          </button>
+        </div>
+
+        <div className="repo-list">
+          {repos.map((repo) => (
+            <button
+              key={repo._id}
+              className={`repo-item ${repo._id === selectedRepoId ? 'active' : ''}`}
+              onClick={() => setSelectedRepoId(repo._id)}
+            >
+              <span className="dot" style={{ background: repo.projectColor || '#f7df1e' }} />
+              <span>{repo.name}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="user-box">
+          <div className="avatar-circle">{currentUser?.name?.slice(0, 2).toUpperCase() || 'U'}</div>
+          <div>
+            <strong>{currentUser?.name || 'User'}</strong>
+            <small>{currentUser?.email || ''}</small>
+          </div>
+          <button className="logout-btn" onClick={logout}>Logout</button>
+        </div>
+      </aside>
+
+      <main className="content-area">
+        <header className="topbar">
+          <div className="searchbox">
+            <span>⌕</span>
+            <input placeholder="Search repositories, chats or members" />
+          </div>
+          <div className="topbar-actions">
+            <button className="top-btn">Bell</button>
+            <button className="top-btn">Invite</button>
+          </div>
+        </header>
+
+        {selectedRepo ? (
+          <>
+            <div className="repo-header">
+              <div>
+                <p className="crumb">Repositories / {selectedRepo.name}</p>
+                <h2>{selectedRepo.name}</h2>
+                <p>{selectedRepo.description || 'Repository made for quick team communication and code collaboration.'}</p>
+              </div>
+              <div className="repo-badges">
+                <span className={`pill ${selectedRepo.isPrivate ? 'private' : 'public'}`}>
+                  {selectedRepo.isPrivate ? 'Private' : 'Public'}
+                </span>
+                <span className="pill neutral">{selectedRepo.language || 'JavaScript'}</span>
+              </div>
+            </div>
+
+            <div className="workspace-grid">
+              <section className="chat-panel">
+                <div className="chat-header">
+                  <h3>#{selectedRepo.name.toLowerCase().replace(/\s+/g, '-')}</h3>
+                  <span className="status online">● 3 online</span>
+                </div>
+
+                <div className="message-stream">
+                  {messages.map((msg) => (
+                    <div
+                      key={msg._id || `${msg.sender?._id}-${msg.createdAt}`}
+                      className={`message-row ${msg.sender?._id === currentUser?._id ? 'mine' : ''}`}
+                    >
+                      <div className="avatar-circle small">
+                        {msg.sender?.name?.slice(0, 2).toUpperCase() || 'U'}
+                      </div>
+                      <div className="bubble">
+                        <div className="bubble-head">
+                          <strong>{msg.sender?.name || 'Member'}</strong>
+                          <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <p>{msg.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {tempTypingUser && <div className="typing-indicator">{tempTypingUser} is typing...</div>}
+
+                <form className="message-form" onSubmit={handleSendMessage}>
+                  <input
+                    value={messageText}
+                    onChange={(e) => {
+                      setMessageText(e.target.value);
+                      handleTyping();
+                    }}
+                    placeholder="Message repository members..."
+                  />
+                  <button type="submit">Send</button>
+                </form>
+              </section>
+
+              <aside className="side-panel">
+                <div className="panel-block">
+                  <h4>Members</h4>
+                  {selectedRepo.members?.map((member) => (
+                    <div className="member-row" key={member._id}>
+                      <div className="avatar-circle small alt">{member.name.slice(0, 2).toUpperCase()}</div>
+                      <div>
+                        <strong>{member.name}</strong>
+                        <small>{member.isOnline ? 'Online' : 'Offline'}</small>
+                      </div>
+                    </div>
+                  )) || <p>No members yet</p>}
+                </div>
+
+                <div className="panel-block">
+                  <h4>Activity</h4>
+                  <ul className="activity-list">
+                    <li><span>✓</span> New repo setup ready</li>
+                    <li><span>💬</span> Team chat is active</li>
+                    <li><span>📁</span> Keep code and conversations together</li>
+                  </ul>
+                </div>
+              </aside>
+            </div>
+          </>
+        ) : (
+          <div className="empty-state">
+            <h3>No repository selected</h3>
+            <p>Create a repo or join one to begin chatting with your team.</p>
+          </div>
+        )}
+      </main>
+
+      {showCreateRepo && (
+        <div className="modal-backdrop" onClick={() => setShowCreateRepo(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>Create repository</h3>
+              <button onClick={() => setShowCreateRepo(false)}>✕</button>
+            </div>
+
+            <form onSubmit={handleCreateRepo} className="repo-form">
+              <label>
+                Repository name
+                <input
+                  value={repoForm.name}
+                  onChange={(e) => setRepoForm({ ...repoForm, name: e.target.value })}
+                  placeholder="e.g. support-dashboard"
+                />
+              </label>
+
+              <label>
+                Description
+                <textarea
+                  value={repoForm.description}
+                  onChange={(e) => setRepoForm({ ...repoForm, description: e.target.value })}
+                  placeholder="What is this project about?"
+                />
+              </label>
+
+              <label>
+                Language
+                <select
+                  value={repoForm.language}
+                  onChange={(e) => setRepoForm({ ...repoForm, language: e.target.value })}
+                >
+                  <option>JavaScript</option>
+                  <option>TypeScript</option>
+                  <option>Node.js</option>
+                  <option>Python</option>
+                  <option>Go</option>
+                </select>
+              </label>
+
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={repoForm.isPrivate}
+                  onChange={(e) => setRepoForm({ ...repoForm, isPrivate: e.target.checked })}
+                />
+                Make it private
+              </label>
+
+              {error && <p className="message error">{error}</p>}
+              {success && <p className="message success">{success}</p>}
+
+              <div className="modal-actions">
+                <button type="button" className="secondary-btn" onClick={() => setShowCreateRepo(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="primary-btn">
+                  {loading ? 'Creating...' : 'Create repo'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default App;
