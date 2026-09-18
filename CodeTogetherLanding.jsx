@@ -1,922 +1,119 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 
-/* ------------------------------------------------------------------ */
-/*  Small utilities                                                    */
-/* ------------------------------------------------------------------ */
+const initialRepos = [
+  { id: 1, name: "CodeTogether", description: "Build together, ship together.", language: "JavaScript", color: "#f7df1e", private: false, unread: 3, stars: 18 },
+  { id: 2, name: "design-system", description: "Shared UI primitives for the team.", language: "TypeScript", color: "#3178c6", private: true, unread: 0, stars: 7 },
+  { id: 3, name: "api-gateway", description: "The collaboration API service.", language: "Node.js", color: "#68a063", private: true, unread: 1, stars: 12 },
+];
 
-function useReveal() {
-  const ref = useRef(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setVisible(true);
-            obs.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.18 }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-  return [ref, visible];
-}
+const initialMessages = [
+  { id: 1, author: "Priya Sharma", initials: "PS", time: "10:18 AM", text: "The new repository screen is looking great. I have pushed the auth flow to the feature/auth branch.", color: "#8b5cf6" },
+  { id: 2, author: "Marcus Chen", initials: "MC", time: "10:21 AM", text: "Nice! I will review it after I finish wiring the socket events. We should keep chat scoped to repository members.", color: "#f97316" },
+  { id: 3, author: "You", initials: "RK", time: "10:24 AM", text: "Agreed. That makes every repository feel like a focused team room. Let us ship the first pass today.", color: "#14b8a6", mine: true },
+];
 
-function Reveal({ as: Tag = "div", className = "", delay = 0, children, ...rest }) {
-  const [ref, visible] = useReveal();
-  return (
-    <Tag
-      ref={ref}
-      className={`reveal${visible ? " reveal--visible" : ""} ${className}`}
-      style={{ transitionDelay: visible ? `${delay}ms` : "0ms" }}
-      {...rest}
-    >
-      {children}
-    </Tag>
-  );
-}
+const members = [
+  { name: "You", handle: "@ronak", role: "Owner", initials: "RK", status: "Online", color: "#14b8a6" },
+  { name: "Priya Sharma", handle: "@priya", role: "Maintainer", initials: "PS", status: "Online", color: "#8b5cf6" },
+  { name: "Marcus Chen", handle: "@marcus", role: "Developer", initials: "MC", status: "In a call", color: "#f97316" },
+  { name: "Elena Rossi", handle: "@elena", role: "Designer", initials: "ER", status: "Away", color: "#ec4899" },
+];
 
-/* ------------------------------------------------------------------ */
-/*  Mascot — Bramble the octopus                                       */
-/*  An original, geometric, friendly mark. Rounded mantle, two calm    */
-/*  eyes, six curling arms. No relation to any existing mascot.        */
-/* ------------------------------------------------------------------ */
-
-function OctopusDefs() {
-  return (
-    <defs>
-      <linearGradient id="mantleFill" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#3EE8CF" />
-        <stop offset="100%" stopColor="#1FA98F" />
-      </linearGradient>
-      <linearGradient id="armFill" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#2FD9C4" />
-        <stop offset="100%" stopColor="#17967F" />
-      </linearGradient>
-    </defs>
-  );
-}
-
-/* Mark used in the nav / footer — small, quick to render */
-function OctopusMark({ size = 34 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden="true">
-      <OctopusDefs />
-      <path
-        d="M14 30c0-11 8-19 18-19s18 8 18 19c0 8-6 13-18 13S14 38 14 30Z"
-        fill="url(#mantleFill)"
-      />
-      <circle cx="25.5" cy="27" r="3.4" fill="#0A0F12" />
-      <circle cx="38.5" cy="27" r="3.4" fill="#0A0F12" />
-      <circle cx="24.4" cy="25.8" r="1" fill="#EDF3F2" />
-      <circle cx="37.4" cy="25.8" r="1" fill="#EDF3F2" />
-      <path d="M27 35c2 1.6 8 1.6 10 0" stroke="#0A0F12" strokeWidth="1.6" strokeLinecap="round" fill="none" />
-      <path d="M18 40c-3 3-3 8 1 10" stroke="url(#armFill)" strokeWidth="4" strokeLinecap="round" fill="none" />
-      <path d="M32 43c0 4 0 8 3 10" stroke="url(#armFill)" strokeWidth="4" strokeLinecap="round" fill="none" />
-      <path d="M46 40c3 3 3 8-1 10" stroke="url(#armFill)" strokeWidth="4" strokeLinecap="round" fill="none" />
-    </svg>
-  );
-}
-
-/* Large hero illustration — mantle + six arms, each arm reaching
-   toward a floating UI chip that is rendered separately in Hero(). */
-function OctopusHero({ tilt }) {
-  return (
-    <svg
-      className="octopus-hero__svg"
-      viewBox="0 0 600 600"
-      fill="none"
-      role="img"
-      aria-label="Bramble, the CodeTogether octopus, reaching six arms toward a code editor, a chat thread, a cursor, and a call panel"
-    >
-      <OctopusDefs />
-      <radialGradient id="heroGlow" cx="50%" cy="42%" r="55%">
-        <stop offset="0%" stopColor="#1FA98F" stopOpacity="0.28" />
-        <stop offset="100%" stopColor="#1FA98F" stopOpacity="0" />
-      </radialGradient>
-      <circle cx="300" cy="300" r="290" fill="url(#heroGlow)" />
-
-      {/* arms group — subtle parallax toward cursor */}
-      <g
-        className="octopus-hero__arms"
-        style={{
-          transform: `translate(${tilt.x * 0.6}px, ${tilt.y * 0.6}px)`,
-        }}
-      >
-        <path className="arm arm--draw" style={{ animationDelay: "0.55s" }}
-          d="M235,300 C176,336 132,356 146,408 C154,438 116,430 84,430"
-          stroke="url(#armFill)" strokeWidth="15" strokeLinecap="round" fill="none" />
-        <path className="arm arm--draw" style={{ animationDelay: "0.7s" }}
-          d="M270,328 C226,378 186,416 190,468 C192,500 168,520 166,542"
-          stroke="url(#armFill)" strokeWidth="15" strokeLinecap="round" fill="none" />
-        <path className="arm arm--draw" style={{ animationDelay: "0.4s" }}
-          d="M300,332 C300,398 258,438 300,478 C330,500 274,520 296,558"
-          stroke="url(#armFill)" strokeWidth="14" strokeLinecap="round" fill="none" />
-        <path className="arm arm--draw" style={{ animationDelay: "0.7s" }}
-          d="M330,328 C374,378 414,416 410,468 C408,500 432,520 434,542"
-          stroke="url(#armFill)" strokeWidth="15" strokeLinecap="round" fill="none" />
-        <path className="arm arm--draw" style={{ animationDelay: "0.55s" }}
-          d="M365,300 C424,336 468,356 454,408 C446,438 484,430 516,430"
-          stroke="url(#armFill)" strokeWidth="15" strokeLinecap="round" fill="none" />
-
-        {/* suckers — small texture dots along two of the arms */}
-        <circle cx="176" cy="352" r="5" fill="#12786A" />
-        <circle cx="150" cy="392" r="4.5" fill="#12786A" />
-        <circle cx="420" cy="352" r="5" fill="#12786A" />
-        <circle cx="446" cy="392" r="4.5" fill="#12786A" />
-      </g>
-
-      {/* mantle */}
-      <g className="octopus-hero__mantle">
-        <path
-          d="M220,258 C214,166 251,104 300,100 C349,104 386,166 380,258 C378,300 349,330 300,332 C251,330 222,300 220,258 Z"
-          fill="url(#mantleFill)"
-        />
-        <path
-          d="M228,150 C238,126 260,110 282,106"
-          stroke="#8FF0DF" strokeWidth="6" strokeLinecap="round" fill="none" opacity="0.55"
-        />
-        <circle cx="263" cy="214" r="17" fill="#0A0F12" />
-        <circle cx="337" cy="214" r="17" fill="#0A0F12" />
-        <circle cx="260.5" cy="211" r="4" fill="#EDF3F2" />
-        <circle cx="334.5" cy="211" r="4" fill="#EDF3F2" />
-        <path d="M278,254 Q300,266 322,254" stroke="#0A0F12" strokeWidth="2.4" strokeLinecap="round" fill="none" />
-      </g>
-    </svg>
-  );
-}
-
-/* Small octopus used in the collaboration section, ringed by teammates */
-function OctopusOrbit() {
-  const nodes = [
-    { label: "Priya", role: "Frontend", angle: -100 },
-    { label: "Sam", role: "Backend", angle: -28 },
-    { label: "Elena", role: "DevOps", angle: 40 },
-    { label: "Marcus", role: "Design", angle: 118 },
-    { label: "You", role: "Reviewing", angle: 190 },
-  ];
-  const R = 230;
-  const cx = 300, cy = 300;
-
-  return (
-    <svg viewBox="0 0 600 600" className="octopus-orbit__svg" role="img" aria-label="Bramble at the center, connected to five teammates working around it">
-      <OctopusDefs />
-      {nodes.map((n, i) => {
-        const rad = (n.angle * Math.PI) / 180;
-        const nx = cx + R * Math.cos(rad);
-        const ny = cy + R * Math.sin(rad) * 0.78;
-        const midx = cx + (R * 0.5) * Math.cos(rad + 0.25);
-        const midy = cy + (R * 0.5) * Math.sin(rad + 0.25) * 0.78;
-        return (
-          <g key={n.label}>
-            <path
-              d={`M${cx},${cy} Q${midx},${midy} ${nx},${ny}`}
-              stroke="#1FA98F" strokeWidth="2" strokeDasharray="1 9" strokeLinecap="round" fill="none" opacity="0.7"
-            />
-          </g>
-        );
-      })}
-
-      <path
-        d="M255,268 C250,196 273,148 300,145 C327,148 350,196 345,268 C343,300 324,318 300,319 C276,318 257,300 255,268 Z"
-        fill="url(#mantleFill)"
-      />
-      <circle cx="284" cy="222" r="10" fill="#0A0F12" />
-      <circle cx="316" cy="222" r="10" fill="#0A0F12" />
-      <circle cx="282" cy="220" r="2.4" fill="#EDF3F2" />
-      <circle cx="314" cy="220" r="2.4" fill="#EDF3F2" />
-
-      {nodes.map((n) => {
-        const rad = (n.angle * Math.PI) / 180;
-        const nx = cx + R * Math.cos(rad);
-        const ny = cy + R * Math.sin(rad) * 0.78;
-        return (
-          <g key={n.label + "-node"} transform={`translate(${nx}, ${ny})`} className="orbit-node">
-            <circle r="34" fill="#101820" stroke="#233038" strokeWidth="1.5" />
-            <circle r="34" fill="none" />
-            <text textAnchor="middle" y="-4" className="orbit-node__initial">{n.label[0]}</text>
-            <text textAnchor="middle" y="14" className="orbit-node__role">{n.role}</text>
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Nav                                                                 */
-/* ------------------------------------------------------------------ */
-
-function Nav() {
-  const [scrolled, setScrolled] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-  return (
-    <header className={`nav${scrolled ? " nav--scrolled" : ""}`}>
-      <div className="nav__inner">
-        <a href="#top" className="nav__brand">
-          <OctopusMark size={30} />
-          <span>CodeTogether</span>
-        </a>
-        <nav className="nav__links">
-          <a href="#code">Code</a>
-          <a href="#chat">Chat</a>
-          <a href="#calls">Calls</a>
-          <a href="#collaboration">Team</a>
-        </nav>
-        <a href="#top" className="btn btn--primary btn--small">Start Building</a>
-      </div>
-    </header>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Hero                                                                */
-/* ------------------------------------------------------------------ */
-
-function Hero() {
-  const wrapRef = useRef(null);
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    const t = setTimeout(() => setLoaded(true), 60);
-    return () => clearTimeout(t);
-  }, []);
-
-  const onMove = (e) => {
-    const rect = wrapRef.current.getBoundingClientRect();
-    const px = (e.clientX - rect.left) / rect.width - 0.5;
-    const py = (e.clientY - rect.top) / rect.height - 0.5;
-    setTilt({ x: px * 22, y: py * 16 });
+function Icon({ name, size = 18 }) {
+  const paths = {
+    search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></>,
+    grid: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
+    repo: <><circle cx="12" cy="12" r="8" /><path d="M8 12h8M12 8v8" /></>,
+    chat: <><path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 8.8 8.8 0 0 1-3.3-.7L4 20l1.7-3.8A7.2 7.2 0 0 1 4.5 12 7.5 7.5 0 0 1 12 4.5a7.5 7.5 0 0 1 8 7Z" /></>,
+    bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></>,
+    plus: <><path d="M12 5v14M5 12h14" /></>,
+    menu: <><path d="M4 6h16M4 12h16M4 18h16" /></>,
+    send: <><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></>,
+    paperclip: <path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 1 1-3-3L15 7" />,
+    code: <><path d="m8 9-4 3 4 3M16 9l4 3-4 3M14 5l-4 14" /></>,
+    users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></>,
+    settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.4 1.4-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V20h-2v-.4a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L9 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H7v-2h.4a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L8.6 9 10 7.6l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V6h2v.4a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.4 9l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.4v2h-.4a1.7 1.7 0 0 0-1.2 1Z" /></>,
   };
-  const onLeave = () => setTilt({ x: 0, y: 0 });
-
-  return (
-    <section id="top" className="hero">
-      <div className="hero__inner">
-        <div className={`hero__copy${loaded ? " hero__copy--in" : ""}`}>
-          <h1 className="hero__title">
-            <span className="hero__title-line">CODE</span>
-            <span className="hero__title-line">TOGETHER.</span>
-          </h1>
-          <p className="hero__sub">
-            A collaborative workspace where developers can code, communicate and
-            solve problems together — without switching between multiple platforms.
-          </p>
-          <div className="hero__actions">
-            <a href="#code" className="btn btn--primary">Start Building</a>
-            <a href="#collaboration" className="btn btn--ghost">Explore Workspace</a>
-          </div>
-        </div>
-
-        <div
-          className={`hero__visual${loaded ? " hero__visual--in" : ""}`}
-          ref={wrapRef}
-          onMouseMove={onMove}
-          onMouseLeave={onLeave}
-        >
-          <OctopusHero tilt={tilt} />
-
-          <div className="chip chip--code" style={{ left: "13%", top: "70%" }}>
-            <div className="chip__dot" style={{ background: "#2FD9C4" }} />
-            <code>const room = joinSession()</code>
-          </div>
-
-          <div className="chip chip--chat" style={{ left: "26%", top: "91%" }}>
-            <span className="chip__avatar">P</span>
-            <span>ship it, tests are green</span>
-          </div>
-
-          <div className="chip chip--cursor" style={{ left: "74%", top: "91%" }}>
-            <span className="chip__cursor" />
-            <span>elena is typing…</span>
-          </div>
-
-          <div className="chip chip--call" style={{ left: "87%", top: "70%" }}>
-            <span className="chip__live" />
-            <span>Live · 3 in call</span>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
 }
 
-/* ------------------------------------------------------------------ */
-/*  Section: Code                                                      */
-/* ------------------------------------------------------------------ */
-
-function CodeSection() {
-  const files = ["merge.ts", "session.ts", "cursor.ts", "presence.ts"];
-  const lines = [
-    { n: 1, t: "import", c: "session", rest: " from './core'" },
-    { n: 2, t: "", c: "", rest: "" },
-    { n: 3, t: "export function", c: " mergeChanges", rest: "(a, b) {" },
-    { n: 4, t: "  return", c: " session", rest: ".resolve(a, b)" },
-    { n: 5, t: "}", c: "", rest: "" },
-  ];
-  return (
-    <section id="code" className="section">
-      <div className="section__inner section__inner--split">
-        <Reveal className="section__copy">
-          <h2 className="section__title">Write code together.</h2>
-          <p className="section__text">
-            Open a file and see teammates arrive with you — every cursor, edit
-            and selection appears the instant it happens. No pull request
-            required just to think out loud.
-          </p>
-          <p className="section__text">
-            The file explorer, the terminal and the diff view stay in the same
-            window as the conversation about them, so context never gets lost
-            between tools.
-          </p>
-        </Reveal>
-
-        <Reveal className="section__visual" delay={100}>
-          <div className="code-window">
-            <div className="code-window__bar">
-              <span className="dot dot--r" /><span className="dot dot--y" /><span className="dot dot--g" />
-              <span className="code-window__tab">merge.ts</span>
-            </div>
-            <div className="code-window__body">
-              <div className="file-explorer">
-                {files.map((f, i) => (
-                  <div key={f} className={`file-explorer__item${i === 0 ? " file-explorer__item--active" : ""}`}>{f}</div>
-                ))}
-              </div>
-              <div className="code-lines">
-                {lines.map((l) => (
-                  <div key={l.n} className="code-line">
-                    <span className="code-line__n">{l.n}</span>
-                    <span className="code-line__kw">{l.t}</span>
-                    <span className="code-line__id">{l.c}</span>
-                    <span className="code-line__rest">{l.rest}</span>
-                  </div>
-                ))}
-                <div className="cursor-flag" style={{ top: "62px", left: "168px" }}>
-                  <span className="cursor-flag__caret" />
-                  <span className="cursor-flag__label">priya</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
+function Avatar({ initials, color, small = false }) {
+  return <span className={`avatar${small ? " avatar--small" : ""}`} style={{ background: color }}>{initials}</span>;
 }
-
-/* ------------------------------------------------------------------ */
-/*  Section: Chat                                                      */
-/* ------------------------------------------------------------------ */
-
-function ChatSection() {
-  const messages = [
-    { who: "Marcus", msg: "pushed the auth refactor, can someone take a look?", me: false },
-    { who: "You", msg: "on it — pulling the branch now", me: true },
-    { who: "Elena", msg: "the token refresh logic looks solid 👍", me: false },
-  ];
-  const members = [
-    { name: "Marcus", online: true },
-    { name: "Elena", online: true },
-    { name: "Sam", online: false },
-    { name: "Priya", online: true },
-  ];
-  return (
-    <section id="chat" className="section section--tint">
-      <div className="section__inner section__inner--split section__inner--reverse">
-        <Reveal className="section__visual" delay={100}>
-          <div className="chat-panel">
-            <div className="chat-panel__main">
-              {messages.map((m, i) => (
-                <div key={i} className={`msg${m.me ? " msg--me" : ""}`}>
-                  <span className="msg__avatar">{m.who[0]}</span>
-                  <div className="msg__bubble">
-                    <span className="msg__who">{m.who}</span>
-                    <span className="msg__text">{m.msg}</span>
-                  </div>
-                </div>
-              ))}
-              <div className="typing">
-                <span className="msg__avatar msg__avatar--ghost">S</span>
-                <div className="typing__dots"><i /><i /><i /></div>
-              </div>
-            </div>
-            <div className="chat-panel__members">
-              <span className="chat-panel__members-label">Online</span>
-              {members.map((m) => (
-                <div key={m.name} className="member">
-                  <span className={`member__dot${m.online ? " member__dot--on" : ""}`} />
-                  {m.name}
-                </div>
-              ))}
-            </div>
-          </div>
-        </Reveal>
-
-        <Reveal className="section__copy">
-          <h2 className="section__title">Talk while you build.</h2>
-          <p className="section__text">
-            The conversation happens right beside the code, not in a separate
-            app you have to alt-tab to find. Mention a file and the thread
-            keeps it attached.
-          </p>
-          <p className="section__text">
-            See who's online, who's heads-down, and who just fixed the bug
-            you were about to ask about.
-          </p>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Section: Calls                                                     */
-/* ------------------------------------------------------------------ */
-
-function CallsSection() {
-  const participants = ["Elena", "Priya", "Marcus", "You"];
-  return (
-    <section id="calls" className="section">
-      <div className="section__inner section__inner--stack">
-        <Reveal className="section__copy section__copy--center">
-          <h2 className="section__title">See the problem. Solve it together.</h2>
-          <p className="section__text section__text--center">
-            Jump on a call without leaving the workspace. Share a screen,
-            point at a line of code, and keep typing the fix while you talk.
-          </p>
-        </Reveal>
-
-        <Reveal className="section__visual" delay={100}>
-          <div className="calls-panel">
-            <div className="calls-panel__bar">
-              <span className="live-dot" /> Live — screen sharing "session.ts"
-            </div>
-            <div className="calls-panel__body">
-              <div className="calls-panel__screen">
-                <div className="calls-panel__screen-line" style={{ width: "70%" }} />
-                <div className="calls-panel__screen-line" style={{ width: "45%" }} />
-                <div className="calls-panel__screen-line" style={{ width: "85%" }} />
-                <div className="calls-panel__screen-line" style={{ width: "30%" }} />
-                <div className="calls-panel__screen-line calls-panel__screen-line--accent" style={{ width: "55%" }} />
-              </div>
-              <div className="calls-panel__people">
-                {participants.map((p, i) => (
-                  <div key={p} className={`participant${i === 0 ? " participant--speaking" : ""}`}>
-                    <span className="participant__avatar">{p[0]}</span>
-                    <span className="participant__name">{p}</span>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="participant__mic">
-                      <rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.6" />
-                      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                    </svg>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Section: Collaboration                                             */
-/* ------------------------------------------------------------------ */
-
-function CollabSection() {
-  return (
-    <section id="collaboration" className="section section--tint">
-      <div className="section__inner section__inner--stack">
-        <Reveal className="octopus-orbit">
-          <OctopusOrbit />
-        </Reveal>
-        <Reveal className="section__copy section__copy--center" delay={80}>
-          <h2 className="section__title">One project. One workspace. One team.</h2>
-          <p className="section__text section__text--center">
-            Bramble keeps every arm on something different — a file, a
-            conversation, a call — so your team never has to be. Everyone
-            works from the same source of truth, at the same time.
-          </p>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Final CTA + Footer                                                 */
-/* ------------------------------------------------------------------ */
-
-function FinalCTA() {
-  return (
-    <section className="final">
-      <svg className="final__blob" viewBox="0 0 800 400" aria-hidden="true">
-        <path
-          d="M50,200 C50,90 180,30 340,40 C520,52 620,110 700,200 C620,290 520,348 340,360 C180,370 50,310 50,200 Z"
-          fill="#1FA98F" opacity="0.14"
-        />
-      </svg>
-      <Reveal className="final__inner">
-        <h2 className="final__title">Build together. Ship together.</h2>
-        <a href="#top" className="btn btn--primary btn--large">Start Building</a>
-      </Reveal>
-    </section>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="footer">
-      <div className="footer__inner">
-        <a href="#top" className="nav__brand">
-          <OctopusMark size={24} />
-          <span>CodeTogether</span>
-        </a>
-        <p className="footer__tag">Code, talk and ship in one workspace.</p>
-        <p className="footer__copy">© {new Date().getFullYear()} CodeTogether. All rights reserved.</p>
-      </div>
-    </footer>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Root                                                                */
-/* ------------------------------------------------------------------ */
 
 export default function CodeTogetherLanding() {
+  const [repos, setRepos] = useState(initialRepos);
+  const [activeRepo, setActiveRepo] = useState(initialRepos[0]);
+  const [messages, setMessages] = useState(initialMessages);
+  const [draft, setDraft] = useState("");
+  const [filter, setFilter] = useState("");
+  const [view, setView] = useState("workspace");
+  const [showCreate, setShowCreate] = useState(false);
+  const [newRepo, setNewRepo] = useState({ name: "", description: "", private: true });
+  const [notice, setNotice] = useState("");
+
+  const filteredRepos = useMemo(() => repos.filter((repo) => `${repo.name} ${repo.description}`.toLowerCase().includes(filter.toLowerCase())), [repos, filter]);
+
+  const sendMessage = (event) => {
+    event.preventDefault();
+    if (!draft.trim()) return;
+    setMessages([...messages, { id: Date.now(), author: "You", initials: "RK", time: "now", text: draft.trim(), color: "#14b8a6", mine: true }]);
+    setDraft("");
+  };
+
+  const createRepository = (event) => {
+    event.preventDefault();
+    if (!newRepo.name.trim()) return;
+    const repo = { id: Date.now(), name: newRepo.name.trim(), description: newRepo.description || "A new CodeTogether repository.", language: "JavaScript", color: "#f7df1e", private: newRepo.private, unread: 0, stars: 0 };
+    setRepos([repo, ...repos]);
+    setActiveRepo(repo);
+    setShowCreate(false);
+    setNewRepo({ name: "", description: "", private: true });
+    setNotice(`Repository ${repo.name} created`);
+    setTimeout(() => setNotice(""), 2500);
+  };
+
   return (
-    <div className="site">
-      <GlobalStyles />
-      <Nav />
-      <Hero />
-      <CodeSection />
-      <ChatSection />
-      <CallsSection />
-      <CollabSection />
-      <FinalCTA />
-      <Footer />
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand"><div className="brand-mark">&lt;/&gt;</div><span>CodeTogether</span></div>
+        <div className="workspace-switcher"><Avatar initials="CT" color="#14b8a6" /><div><strong>CodeTogether org</strong><small>Personal workspace</small></div><span className="chevron">⌄</span></div>
+        <nav className="main-nav">
+          <button className={view === "overview" ? "active" : ""} onClick={() => setView("overview")}><Icon name="grid" />Overview</button>
+          <button className={view === "workspace" ? "active" : ""} onClick={() => setView("workspace")}><Icon name="chat" />Workspace <span className="nav-badge">4</span></button>
+          <button><Icon name="code" />Pull requests <span className="nav-count">2</span></button>
+          <button><Icon name="users" />Members</button>
+        </nav>
+        <div className="sidebar-label">YOUR REPOSITORIES <button onClick={() => setShowCreate(true)}><Icon name="plus" size={15} /></button></div>
+        <div className="repo-list">{filteredRepos.map((repo) => <button key={repo.id} className={`repo-link ${activeRepo.id === repo.id ? "selected" : ""}`} onClick={() => { setActiveRepo(repo); setView("workspace"); }}><span className="repo-dot" style={{ background: repo.color }} /><span>{repo.name}</span>{repo.unread > 0 && <b>{repo.unread}</b>}</button>)}</div>
+        <div className="sidebar-bottom"><button><Icon name="settings" />Settings</button><button><Avatar initials="RK" color="#14b8a6" small /><span>Ronak Kumar</span><span className="chevron">⌄</span></button></div>
+      </aside>
+
+      <main className="main-content">
+        <header className="topbar"><div className="mobile-brand"><Icon name="menu" /> CodeTogether</div><div className="global-search"><Icon name="search" /><input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search repositories, messages, members..." /><kbd>⌘ K</kbd></div><div className="top-actions"><button className="icon-button"><Icon name="bell" /><span className="notification-dot" /></button><Avatar initials="RK" color="#14b8a6" /></div></header>
+
+        {view === "overview" ? <Overview repos={repos} onCreate={() => setShowCreate(true)} /> : <>
+          <div className="repo-header"><div><div className="breadcrumb"><Icon name="repo" size={16} /> Repositories <span>/</span> {activeRepo.name}</div><h1>{activeRepo.name} <span className={activeRepo.private ? "private-pill" : "public-pill"}>{activeRepo.private ? "Private" : "Public"}</span></h1><p>{activeRepo.description}</p></div><div className="repo-actions"><button className="secondary-button">☆ Star <span>{activeRepo.stars}</span></button><button className="primary-button" onClick={() => setNotice("Invite link copied to clipboard")}>Invite members</button></div></div>
+          <div className="tabs"><button className="tab active">Workspace</button><button className="tab">Code</button><button className="tab">Issues <span>4</span></button><button className="tab">Pull requests <span>2</span></button><button className="tab">Insights</button></div>
+          <section className="workspace-grid">
+            <div className="chat-card"><div className="card-heading"><div><h2>#{activeRepo.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}</h2><p>Repository team chat</p></div><div className="presence"><span className="online-dot" /> 3 online <button className="icon-button"><Icon name="users" size={16} /></button></div></div><div className="message-list">{messages.map((message) => <article className={`message ${message.mine ? "message--mine" : ""}`} key={message.id}><Avatar initials={message.initials} color={message.color} /><div className="message-body"><div className="message-meta"><strong>{message.author}</strong><span>{message.time}</span></div><p>{message.text}</p>{message.id === 2 && <div className="code-attachment"><Icon name="code" size={15} /><span><strong>server/socket.js</strong><small>Added repository room events</small></span><em>View</em></div>}</div></article>)}</div><div className="typing-line"><span className="typing-dots"><i /><i /><i /></span> Elena is typing...</div><form className="composer" onSubmit={sendMessage}><button type="button" className="icon-button"><Icon name="paperclip" /></button><input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Message repository members..." /><button className="send-button" type="submit"><Icon name="send" size={16} /></button></form></div>
+            <aside className="right-column"><div className="panel"><div className="panel-title"><h3>Repository members</h3><button className="text-button">Manage</button></div>{members.map((member) => <div className="member-row" key={member.handle}><Avatar initials={member.initials} color={member.color} small /><div><strong>{member.name}</strong><small>{member.role} · {member.status}</small></div><span className={`status ${member.status === "Online" ? "status--online" : ""}`} /></div>)}<button className="invite-button" onClick={() => setNotice("Invite link copied to clipboard")}><Icon name="plus" size={15} /> Invite a member</button></div><div className="panel activity-panel"><div className="panel-title"><h3>Recent activity</h3><button className="text-button">View all</button></div><div className="activity"><span className="activity-icon">⌘</span><p><strong>Priya</strong> opened <b>auth.js</b><small>12 minutes ago</small></p></div><div className="activity"><span className="activity-icon">↗</span><p><strong>Marcus</strong> opened pull request <b>#24</b><small>31 minutes ago</small></p></div><div className="activity"><span className="activity-icon">✓</span><p><strong>Elena</strong> merged <b>fix/navbar</b><small>1 hour ago</small></p></div></div></aside>
+          </section>
+        </>}
+      </main>
+
+      {showCreate && <div className="modal-backdrop" onMouseDown={() => setShowCreate(false)}><form className="modal" onSubmit={createRepository} onMouseDown={(e) => e.stopPropagation()}><div className="modal-header"><div><h2>Create a repository</h2><p>Start a focused workspace for your team.</p></div><button type="button" className="close-button" onClick={() => setShowCreate(false)}>×</button></div><label>Repository name<input autoFocus value={newRepo.name} onChange={(e) => setNewRepo({ ...newRepo, name: e.target.value })} placeholder="e.g. mobile-app" /></label><label>Description <span>optional</span><textarea value={newRepo.description} onChange={(e) => setNewRepo({ ...newRepo, description: e.target.value })} placeholder="What are you building?" rows="3" /></label><label className="checkbox-row"><input type="checkbox" checked={newRepo.private} onChange={(e) => setNewRepo({ ...newRepo, private: e.target.checked })} /><span><strong>Private repository</strong><small>Only invited members can see code and chat.</small></span></label><div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowCreate(false)}>Cancel</button><button className="primary-button" type="submit">Create repository</button></div></form></div>}
+      {notice && <div className="toast">✓ {notice}</div>}
+      <Styles />
     </div>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Styles                                                             */
-/* ------------------------------------------------------------------ */
-
-function GlobalStyles() {
-  return (
-    <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
-
-      :root {
-        --ink: #0A0F12;
-        --ink-2: #10171B;
-        --ink-3: #141C21;
-        --line: #212B30;
-        --paper: #EAF0EF;
-        --paper-dim: #9DACAA;
-        --kelp: #2FD9C4;
-        --kelp-deep: #1FA98F;
-        --signal: #FF8A54;
-        --signal-deep: #E56E3A;
-      }
-
-      * { box-sizing: border-box; }
-
-      .site {
-        background: var(--ink);
-        color: var(--paper);
-        font-family: 'Inter', sans-serif;
-        line-height: 1.5;
-        overflow-x: hidden;
-      }
-
-      .site h1, .site h2 {
-        font-family: 'Space Grotesk', sans-serif;
-        margin: 0;
-        color: var(--paper);
-      }
-
-      a { color: inherit; text-decoration: none; }
-
-      /* ---------- reveal ---------- */
-      .reveal {
-        opacity: 0;
-        transform: translateY(22px);
-        transition: opacity 0.7s cubic-bezier(.16,.84,.44,1), transform 0.7s cubic-bezier(.16,.84,.44,1);
-      }
-      .reveal--visible { opacity: 1; transform: translateY(0); }
-
-      /* ---------- buttons ---------- */
-      .btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 14px 26px;
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 0.95rem;
-        letter-spacing: 0.01em;
-        transition: transform 0.25s ease, background 0.25s ease, border-color 0.25s ease;
-        border: 1px solid transparent;
-        cursor: pointer;
-      }
-      .btn--primary { background: var(--signal); color: #1A0D05; }
-      .btn--primary:hover { background: var(--signal-deep); transform: translateY(-2px); }
-      .btn--ghost { border-color: var(--line); color: var(--paper); }
-      .btn--ghost:hover { border-color: var(--kelp); color: var(--kelp); transform: translateY(-2px); }
-      .btn--small { padding: 9px 18px; font-size: 0.85rem; }
-      .btn--large { padding: 18px 36px; font-size: 1.05rem; }
-
-      /* ---------- nav ---------- */
-      .nav {
-        position: fixed;
-        top: 0; left: 0; right: 0;
-        z-index: 50;
-        padding: 20px 0;
-        transition: background 0.3s ease, padding 0.3s ease, border-color 0.3s ease;
-        border-bottom: 1px solid transparent;
-      }
-      .nav--scrolled {
-        background: rgba(10,15,18,0.86);
-        backdrop-filter: blur(10px);
-        padding: 14px 0;
-        border-color: var(--line);
-      }
-      .nav__inner {
-        max-width: 1180px;
-        margin: 0 auto;
-        padding: 0 28px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 24px;
-      }
-      .nav__brand {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-family: 'Space Grotesk', sans-serif;
-        font-weight: 600;
-        font-size: 1.05rem;
-      }
-      .nav__links { display: flex; gap: 28px; }
-      .nav__links a { color: var(--paper-dim); font-size: 0.92rem; transition: color 0.2s ease; }
-      .nav__links a:hover { color: var(--paper); }
-      @media (max-width: 760px) { .nav__links { display: none; } }
-
-      /* ---------- hero ---------- */
-      .hero {
-        padding: 168px 28px 120px;
-        max-width: 1280px;
-        margin: 0 auto;
-      }
-      .hero__inner {
-        display: grid;
-        grid-template-columns: 1fr 1.05fr;
-        gap: 40px;
-        align-items: center;
-      }
-      @media (max-width: 980px) {
-        .hero__inner { grid-template-columns: 1fr; }
-      }
-
-      .hero__copy { opacity: 0; transform: translateY(18px); transition: opacity 0.8s ease, transform 0.8s ease; }
-      .hero__copy--in { opacity: 1; transform: translateY(0); }
-
-      .hero__title {
-        font-size: clamp(3.4rem, 8vw, 6.6rem);
-        font-weight: 700;
-        line-height: 0.98;
-        letter-spacing: -0.02em;
-      }
-      .hero__title-line { display: block; }
-
-      .hero__sub {
-        margin: 28px 0 36px;
-        max-width: 46ch;
-        font-size: 1.12rem;
-        color: var(--paper-dim);
-      }
-
-      .hero__actions { display: flex; gap: 16px; flex-wrap: wrap; }
-
-      .hero__visual {
-        position: relative;
-        aspect-ratio: 1 / 1;
-        max-width: 620px;
-        margin: 0 auto;
-        opacity: 0;
-        transform: scale(0.94);
-        transition: opacity 1s ease 0.15s, transform 1s ease 0.15s;
-      }
-      .hero__visual--in { opacity: 1; transform: scale(1); }
-      .octopus-hero__svg { width: 100%; height: 100%; }
-
-      .arm--draw {
-        stroke-dasharray: 420;
-        stroke-dashoffset: 420;
-        animation: draw-arm 1.1s cubic-bezier(.2,.8,.2,1) forwards;
-      }
-      @keyframes draw-arm { to { stroke-dashoffset: 0; } }
-
-      .octopus-hero__arms { animation: sway 7s ease-in-out infinite; transition: transform 0.4s ease-out; transform-origin: 300px 300px; }
-      @keyframes sway {
-        0%, 100% { transform: rotate(0deg); }
-        50% { transform: rotate(0.6deg); }
-      }
-
-      .chip {
-        position: absolute;
-        transform: translate(-50%, -50%);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        background: var(--ink-2);
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 9px 13px;
-        font-size: 0.8rem;
-        color: var(--paper);
-        white-space: nowrap;
-        box-shadow: 0 12px 30px rgba(0,0,0,0.35);
-        opacity: 0;
-        animation: chip-in 0.6s ease forwards;
-      }
-      .chip--code { animation-delay: 1.5s; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; }
-      .chip--chat { animation-delay: 1.7s; }
-      .chip--cursor { animation-delay: 1.85s; }
-      .chip--call { animation-delay: 2s; }
-      @keyframes chip-in {
-        from { opacity: 0; transform: translate(-50%, -40%); }
-        to { opacity: 1; transform: translate(-50%, -50%); }
-      }
-      .chip__dot { width: 7px; height: 7px; border-radius: 50%; }
-      .chip__avatar {
-        width: 20px; height: 20px; border-radius: 50%;
-        background: var(--kelp-deep); color: #06211C;
-        font-size: 0.66rem; font-weight: 700;
-        display: flex; align-items: center; justify-content: center;
-      }
-      .chip__cursor { width: 8px; height: 8px; background: var(--signal); border-radius: 2px 50% 50% 50%; display: inline-block; }
-      .chip__live { width: 8px; height: 8px; border-radius: 50%; background: #FF5C5C; box-shadow: 0 0 0 0 rgba(255,92,92,0.6); animation: pulse-dot 1.8s ease-out infinite; }
-      @keyframes pulse-dot {
-        0% { box-shadow: 0 0 0 0 rgba(255,92,92,0.5); }
-        70% { box-shadow: 0 0 0 8px rgba(255,92,92,0); }
-        100% { box-shadow: 0 0 0 0 rgba(255,92,92,0); }
-      }
-
-      /* ---------- generic section ---------- */
-      .section { padding: 110px 28px; }
-      .section--tint { background: var(--ink-2); }
-      .section__inner { max-width: 1180px; margin: 0 auto; }
-      .section__inner--split {
-        display: grid;
-        grid-template-columns: 0.85fr 1.15fr;
-        gap: 64px;
-        align-items: center;
-      }
-      .section__inner--reverse { grid-template-columns: 1.15fr 0.85fr; }
-      @media (max-width: 900px) {
-        .section__inner--split, .section__inner--reverse { grid-template-columns: 1fr; }
-        .section__inner--reverse .section__copy { order: 2; }
-      }
-      .section__inner--stack { display: flex; flex-direction: column; align-items: center; gap: 48px; text-align: center; }
-
-      .section__title {
-        font-size: clamp(1.9rem, 3.4vw, 2.7rem);
-        font-weight: 600;
-        letter-spacing: -0.01em;
-        margin-bottom: 20px;
-      }
-      .section__text { color: var(--paper-dim); font-size: 1.02rem; max-width: 42ch; margin: 0 0 14px; }
-      .section__text--center { max-width: 52ch; margin-left: auto; margin-right: auto; }
-      .section__copy--center { max-width: 640px; }
-
-      /* ---------- code window ---------- */
-      .code-window {
-        background: var(--ink-3);
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        overflow: hidden;
-        box-shadow: 0 30px 60px rgba(0,0,0,0.35);
-      }
-      .code-window__bar {
-        display: flex; align-items: center; gap: 8px;
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--line);
-      }
-      .dot { width: 9px; height: 9px; border-radius: 50%; }
-      .dot--r { background: #FF5F57; }
-      .dot--y { background: #FEBC2E; }
-      .dot--g { background: #28C840; }
-      .code-window__tab { margin-left: 12px; font-size: 0.78rem; color: var(--paper-dim); font-family: 'JetBrains Mono', monospace; }
-      .code-window__body { display: grid; grid-template-columns: 130px 1fr; min-height: 240px; }
-      .file-explorer { border-right: 1px solid var(--line); padding: 14px 0; }
-      .file-explorer__item { padding: 8px 16px; font-size: 0.8rem; color: var(--paper-dim); font-family: 'JetBrains Mono', monospace; cursor: default; }
-      .file-explorer__item--active { color: var(--kelp); background: rgba(47,217,196,0.08); border-right: 2px solid var(--kelp); }
-      .code-lines { position: relative; padding: 18px 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.84rem; }
-      .code-line { display: flex; gap: 14px; padding: 3px 0; }
-      .code-line__n { color: #445056; width: 14px; }
-      .code-line__kw { color: #6FC7FF; }
-      .code-line__id { color: var(--kelp); }
-      .code-line__rest { color: var(--paper-dim); }
-      .cursor-flag { position: absolute; display: flex; flex-direction: column; align-items: flex-start; }
-      .cursor-flag__caret { width: 2px; height: 18px; background: var(--signal); animation: blink 1s step-end infinite; }
-      .cursor-flag__label { margin-top: 2px; background: var(--signal); color: #1A0D05; font-size: 0.62rem; padding: 1px 6px; border-radius: 4px; font-family: 'Inter', sans-serif; font-weight: 600; }
-      @keyframes blink { 50% { opacity: 0; } }
-
-      /* ---------- chat ---------- */
-      .chat-panel {
-        background: var(--ink-3);
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        display: grid;
-        grid-template-columns: 1fr 160px;
-        min-height: 300px;
-        box-shadow: 0 30px 60px rgba(0,0,0,0.35);
-        overflow: hidden;
-      }
-      .chat-panel__main { padding: 22px; display: flex; flex-direction: column; gap: 16px; }
-      .msg { display: flex; gap: 10px; align-items: flex-start; }
-      .msg--me { flex-direction: row-reverse; }
-      .msg--me .msg__bubble { background: rgba(47,217,196,0.12); align-items: flex-end; text-align: right; }
-      .msg__avatar {
-        width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
-        background: var(--kelp-deep); color: #06211C; font-size: 0.72rem; font-weight: 700;
-        display: flex; align-items: center; justify-content: center;
-      }
-      .msg__avatar--ghost { background: var(--ink-2); border: 1px dashed var(--line); color: var(--paper-dim); }
-      .msg__bubble { display: flex; flex-direction: column; background: var(--ink-2); border-radius: 10px; padding: 8px 12px; max-width: 320px; }
-      .msg__who { font-size: 0.68rem; color: var(--paper-dim); margin-bottom: 2px; }
-      .msg__text { font-size: 0.9rem; }
-      .typing { display: flex; align-items: center; gap: 10px; }
-      .typing__dots { display: flex; gap: 4px; background: var(--ink-2); padding: 8px 12px; border-radius: 10px; }
-      .typing__dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--paper-dim); display: inline-block; animation: typing 1.2s infinite; }
-      .typing__dots i:nth-child(2) { animation-delay: 0.15s; }
-      .typing__dots i:nth-child(3) { animation-delay: 0.3s; }
-      @keyframes typing { 0%, 60%, 100% { opacity: 0.3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
-      .chat-panel__members { border-left: 1px solid var(--line); padding: 20px 16px; display: flex; flex-direction: column; gap: 12px; }
-      .chat-panel__members-label { font-size: 0.7rem; color: var(--paper-dim); margin-bottom: 4px; }
-      .member { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; }
-      .member__dot { width: 7px; height: 7px; border-radius: 50%; background: #445056; }
-      .member__dot--on { background: #35D67C; }
-
-      /* ---------- calls ---------- */
-      .calls-panel {
-        background: var(--ink-3);
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        width: 100%;
-        max-width: 900px;
-        overflow: hidden;
-        box-shadow: 0 30px 60px rgba(0,0,0,0.35);
-      }
-      .calls-panel__bar { display: flex; align-items: center; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--line); font-size: 0.8rem; color: var(--paper-dim); }
-      .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #FF5C5C; animation: pulse-dot 1.8s ease-out infinite; }
-      .calls-panel__body { display: grid; grid-template-columns: 1fr 150px; }
-      .calls-panel__screen { padding: 26px; display: flex; flex-direction: column; gap: 12px; justify-content: center; min-height: 220px; }
-      .calls-panel__screen-line { height: 8px; border-radius: 4px; background: var(--ink-2); }
-      .calls-panel__screen-line--accent { background: rgba(47,217,196,0.4); }
-      .calls-panel__people { border-left: 1px solid var(--line); padding: 18px 14px; display: flex; flex-direction: column; gap: 16px; }
-      .participant { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--paper-dim); }
-      .participant--speaking .participant__avatar { box-shadow: 0 0 0 2px var(--kelp); }
-      .participant__avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--ink-2); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: var(--paper); }
-      .participant__name { flex: 1; }
-      .participant__mic { color: var(--paper-dim); }
-
-      /* ---------- collaboration orbit ---------- */
-      .octopus-orbit { width: 100%; max-width: 640px; }
-      .octopus-orbit__svg { width: 100%; height: auto; }
-      .orbit-node__initial { fill: var(--paper); font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 600; }
-      .orbit-node__role { fill: var(--paper-dim); font-family: 'Inter', sans-serif; font-size: 9px; }
-
-      /* ---------- final CTA ---------- */
-      .final { position: relative; padding: 150px 28px; text-align: center; overflow: hidden; }
-      .final__blob { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
-      .final__inner { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 34px; }
-      .final__title { font-size: clamp(2.2rem, 5vw, 3.6rem); font-weight: 700; max-width: 16ch; letter-spacing: -0.01em; }
-
-      /* ---------- footer ---------- */
-      .footer { border-top: 1px solid var(--line); padding: 48px 28px; }
-      .footer__inner { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
-      .footer__tag { color: var(--paper-dim); font-size: 0.9rem; margin: 4px 0; }
-      .footer__copy { color: #5A6669; font-size: 0.78rem; }
-
-      @media (prefers-reduced-motion: reduce) {
-        *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
-      }
-    `}</style>
-  );
+function Overview({ repos, onCreate }) {
+  return <div className="overview"><div className="overview-heading"><div><p className="eyebrow">YOUR WORKSPACE</p><h1>Good morning, Ronak <span>👋</span></h1><p className="muted">Everything your team is building, in one calm place.</p></div><button className="primary-button" onClick={onCreate}><Icon name="plus" size={16} /> New repository</button></div><div className="stats"><div><span>Repositories</span><strong>{repos.length}</strong><small>+1 this month</small></div><div><span>Team members</span><strong>12</strong><small>3 online now</small></div><div><span>Open pull requests</span><strong>6</strong><small>2 need your review</small></div></div><div className="overview-section"><div className="panel-title"><h2>Recent repositories</h2><button className="text-button">View all</button></div><div className="overview-repos">{repos.map((repo) => <div className="overview-repo" key={repo.id}><div className="repo-heading"><span className="repo-dot" style={{ background: repo.color }} /><strong>{repo.name}</strong><span className={repo.private ? "private-pill" : "public-pill"}>{repo.private ? "Private" : "Public"}</span></div><p>{repo.description}</p><small><span className="language-dot" style={{ background: repo.color }} />{repo.language} · Updated today · {repo.stars} stars</small></div>)}</div></div></div>;
 }
+
+function Styles() { return <style>{`
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+:root{--bg:#f7f9fb;--surface:#fff;--ink:#17252c;--muted:#73838b;--line:#e5eaed;--teal:#0b9e89;--teal-dark:#087d6e;--teal-pale:#e5f7f4;--navy:#12252e}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif}.app-shell{display:flex;min-height:100vh}.sidebar{width:258px;background:var(--navy);color:#dbe8e8;padding:22px 14px;display:flex;flex-direction:column;flex-shrink:0}.brand{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:18px;padding:0 10px 25px;color:#fff}.brand-mark{width:30px;height:30px;display:grid;place-items:center;background:var(--teal);border-radius:8px;color:#072b2a;font:700 11px monospace}.workspace-switcher{display:flex;align-items:center;gap:9px;padding:10px;border:1px solid #29404a;border-radius:9px;margin-bottom:20px}.workspace-switcher strong,.workspace-switcher small{display:block}.workspace-switcher strong{font-size:12px;color:#fff}.workspace-switcher small{font-size:10px;color:#839ba0;margin-top:3px}.chevron{margin-left:auto;color:#86a0a4}.avatar{width:34px;height:34px;border-radius:50%;display:inline-grid;place-items:center;color:#fff;font-size:11px;font-weight:700;flex:none}.avatar--small{width:27px;height:27px;font-size:9px}.main-nav{display:grid;gap:4px}.main-nav button,.sidebar-bottom button{background:transparent;border:0;color:#9eb2b5;text-align:left;padding:11px 10px;border-radius:7px;display:flex;gap:11px;align-items:center;font:500 13px 'DM Sans';cursor:pointer}.main-nav button:hover,.main-nav button.active,.sidebar-bottom button:hover{background:#1c3942;color:#fff}.nav-badge{margin-left:auto;background:var(--teal);color:#fff;padding:2px 7px;border-radius:10px;font-size:10px}.nav-count{margin-left:auto;color:#6f8a8e}.sidebar-label{font-size:10px;letter-spacing:.11em;color:#718b91;margin:28px 10px 10px;display:flex;justify-content:space-between;align-items:center}.sidebar-label button{background:none;border:0;color:#88a2a5;cursor:pointer}.repo-list{display:grid;gap:3px}.repo-link{border:0;background:none;color:#aac0c2;display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:7px;text-align:left;font:500 13px 'DM Sans';cursor:pointer}.repo-link:hover,.repo-link.selected{background:#1c3942;color:#fff}.repo-link b{margin-left:auto;font-size:10px;background:#ea7a50;color:white;border-radius:10px;padding:2px 6px}.repo-dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}.sidebar-bottom{margin-top:auto;border-top:1px solid #29404a;padding-top:12px}.sidebar-bottom button{width:100%}.sidebar-bottom button:last-child{font-size:12px}.sidebar-bottom button:last-child .chevron{margin-left:auto}.main-content{min-width:0;flex:1}.topbar{height:73px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:25px;padding:0 38px}.global-search{height:38px;max-width:500px;flex:1;display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:7px;padding:0 12px;color:#9ba9ad}.global-search input{border:0;outline:0;flex:1;font:13px 'DM Sans';color:var(--ink)}kbd{border:1px solid var(--line);border-radius:4px;padding:2px 5px;font-size:10px;background:#fafbfc}.top-actions{display:flex;align-items:center;gap:18px;margin-left:auto}.icon-button{background:none;border:0;color:#708188;cursor:pointer;position:relative;display:inline-grid;place-items:center;padding:5px}.notification-dot{position:absolute;right:3px;top:3px;width:6px;height:6px;background:#ec7653;border-radius:50%;border:1px solid white}.mobile-brand{display:none}.repo-header{padding:35px 42px 23px;display:flex;justify-content:space-between;gap:20px}.breadcrumb{font-size:12px;color:#829198;display:flex;gap:7px;align-items:center;margin-bottom:12px}.repo-header h1,.overview h1{font:700 28px 'Space Grotesk';margin:0 0 8px;letter-spacing:-.03em}.repo-header p,.muted{margin:0;color:var(--muted);font-size:13px}.private-pill,.public-pill{font:500 10px 'DM Sans';border-radius:12px;padding:4px 8px;vertical-align:middle;margin-left:6px}.private-pill{color:#687a82;background:#eef1f3}.public-pill{color:var(--teal-dark);background:var(--teal-pale)}.repo-actions{display:flex;align-items:flex-start;gap:10px}.primary-button,.secondary-button{border:1px solid transparent;border-radius:6px;padding:10px 14px;font:600 12px 'DM Sans';cursor:pointer;display:inline-flex;align-items:center;gap:7px}.primary-button{background:var(--teal);color:white}.primary-button:hover{background:var(--teal-dark)}.secondary-button{background:white;border-color:var(--line);color:#52646b}.secondary-button span{color:#829198}.tabs{padding:0 42px;display:flex;gap:26px;border-bottom:1px solid var(--line);background:#fff}.tab{padding:14px 0 13px;border:0;background:none;color:#718087;font:500 13px 'DM Sans';cursor:pointer;border-bottom:2px solid transparent}.tab.active{color:var(--teal-dark);border-color:var(--teal)}.tab span{font-size:10px;background:#edf2f3;padding:2px 6px;border-radius:9px;margin-left:4px}.workspace-grid{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:22px;padding:25px 42px}.chat-card,.panel{background:#fff;border:1px solid var(--line);border-radius:9px}.chat-card{min-height:610px;display:flex;flex-direction:column}.card-heading{display:flex;justify-content:space-between;align-items:center;padding:21px 24px;border-bottom:1px solid var(--line)}.card-heading h2{font:600 16px 'Space Grotesk';margin:0 0 4px}.card-heading p{font-size:11px;color:var(--muted);margin:0}.presence{display:flex;align-items:center;gap:6px;font-size:11px;color:#6d7e84}.presence .icon-button{margin-left:10px;border-left:1px solid var(--line);padding-left:14px}.online-dot,.status{width:7px;height:7px;border-radius:50%;background:#b7c2c5;display:inline-block}.online-dot,.status--online{background:#27b98a}.message-list{padding:25px 24px;display:grid;gap:23px;flex:1}.message{display:flex;gap:11px;max-width:680px}.message--mine{margin-left:auto;flex-direction:row-reverse}.message-body{min-width:0}.message-meta{display:flex;gap:9px;align-items:baseline;margin:1px 0 6px}.message-meta strong{font-size:12px}.message-meta span{font-size:10px;color:#a0adb1}.message-body p{font-size:13px;line-height:1.65;color:#52646b;background:#f5f8f9;border-radius:0 9px 9px 9px;margin:0;padding:10px 13px}.message--mine .message-body{text-align:right}.message--mine .message-body p{background:var(--teal-pale);border-radius:9px 0 9px 9px;color:#315f5c}.code-attachment{display:flex;align-items:center;text-align:left;gap:9px;margin-top:9px;border:1px solid #dce8e7;background:#fbfdfd;border-radius:7px;padding:9px;color:var(--teal-dark)}.code-attachment span{display:grid;gap:2px;flex:1}.code-attachment strong{font-size:11px}.code-attachment small{font-size:10px;color:#809094}.code-attachment em{font-style:normal;font-size:10px;color:#799097}.typing-line{font-size:10px;color:#93a0a4;padding:0 24px 12px;display:flex;align-items:center;gap:7px}.typing-dots{display:flex;gap:3px}.typing-dots i{height:4px;width:4px;border-radius:50%;background:#93a0a4}.composer{display:flex;gap:8px;align-items:center;border-top:1px solid var(--line);padding:15px 19px}.composer input{border:0;outline:0;flex:1;font:13px 'DM Sans';color:var(--ink)}.send-button{background:var(--teal);border:0;color:#fff;width:32px;height:32px;border-radius:6px;display:grid;place-items:center;cursor:pointer}.right-column{display:grid;align-content:start;gap:18px}.panel{padding:19px}.panel-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.panel-title h3,.panel-title h2{font:600 14px 'Space Grotesk';margin:0}.text-button{border:0;background:none;color:var(--teal-dark);font:600 11px 'DM Sans';cursor:pointer}.member-row{display:flex;align-items:center;gap:9px;padding:9px 0}.member-row div:nth-child(2){display:grid;gap:3px;flex:1}.member-row strong{font-size:11px}.member-row small{font-size:10px;color:var(--muted)}.invite-button{margin-top:12px;width:100%;border:1px dashed #b8d8d4;color:var(--teal-dark);background:#f5fbfa;border-radius:6px;padding:9px;font:600 11px 'DM Sans';display:flex;justify-content:center;gap:6px;cursor:pointer}.activity{display:flex;gap:9px;padding:10px 0;border-top:1px solid #f0f2f3}.activity-icon{width:25px;height:25px;border-radius:6px;background:var(--teal-pale);color:var(--teal-dark);display:grid;place-items:center;font-size:13px}.activity p{margin:0;font-size:10px;line-height:1.5;color:#718087}.activity p b{color:#475960}.activity p small{display:block;color:#a1adb0;margin-top:2px}.overview{padding:42px;max-width:1100px}.overview-heading{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:35px}.eyebrow{font-size:10px;letter-spacing:.14em;color:var(--teal-dark);font-weight:700;margin:0 0 9px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:35px}.stats>div{background:#fff;border:1px solid var(--line);border-radius:9px;padding:20px}.stats span,.stats small{display:block;color:var(--muted);font-size:11px}.stats strong{display:block;font:700 27px 'Space Grotesk';margin:8px 0 4px}.stats small{color:var(--teal-dark)}.overview-section{background:#fff;border:1px solid var(--line);border-radius:9px;padding:21px}.overview-repos{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.overview-repo{border:1px solid var(--line);border-radius:7px;padding:16px}.repo-heading{display:flex;align-items:center;gap:8px;font-size:13px}.overview-repo p{font-size:11px;color:var(--muted);margin:11px 0 18px}.overview-repo small{font-size:10px;color:#829198}.language-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px}.modal-backdrop{position:fixed;inset:0;background:rgba(15,31,38,.52);display:grid;place-items:center;z-index:20;padding:20px}.modal{width:100%;max-width:470px;background:#fff;border-radius:10px;padding:25px;box-shadow:0 25px 80px #071b22aa}.modal-header{display:flex;justify-content:space-between;margin-bottom:22px}.modal h2{font:600 20px 'Space Grotesk';margin:0 0 6px}.modal p{font-size:12px;color:var(--muted);margin:0}.close-button{border:0;background:none;font-size:25px;color:#819095;cursor:pointer;align-self:flex-start}.modal label{display:block;font-size:11px;font-weight:600;color:#52646b;margin:15px 0}.modal label>input:not([type=checkbox]),.modal textarea{display:block;width:100%;margin-top:7px;border:1px solid var(--line);border-radius:6px;padding:10px;font:13px 'DM Sans';outline-color:var(--teal)}.modal label span{font-weight:400;color:#9da8ab}.checkbox-row{display:flex!important;gap:9px;align-items:flex-start}.checkbox-row input{accent-color:var(--teal);margin-top:2px}.checkbox-row span{display:grid;gap:3px}.checkbox-row small{font-weight:400;color:var(--muted)}.modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:25px}.toast{position:fixed;bottom:24px;right:24px;background:#163a3f;color:#fff;padding:12px 16px;border-radius:7px;font-size:12px;box-shadow:0 10px 25px #001a1c33;z-index:30}@media(max-width:1000px){.sidebar{width:220px}.workspace-grid{grid-template-columns:1fr;padding:22px}.repo-header,.tabs{padding-left:22px;padding-right:22px}.right-column{grid-template-columns:1fr 1fr}.overview{padding:28px}}@media(max-width:720px){.sidebar{display:none}.topbar{padding:0 16px;height:62px;gap:12px}.mobile-brand{display:flex;align-items:center;gap:7px;font:600 15px 'Space Grotesk';white-space:nowrap}.global-search{order:2}.global-search kbd{display:none}.top-actions{gap:5px}.repo-header{padding:25px 18px 18px;display:block}.repo-actions{margin-top:17px}.tabs{padding:0 18px;overflow:auto;gap:22px}.workspace-grid{padding:16px}.right-column{grid-template-columns:1fr}.card-heading{padding:17px}.message-list{padding:20px 17px}.composer{padding:12px}.overview{padding:25px 18px}.overview-heading{display:block}.overview-heading .primary-button{margin-top:18px}.stats{grid-template-columns:1fr}.overview-repos{grid-template-columns:1fr}.repo-header h1,.overview h1{font-size:24px}}
+`}</style>; }
