@@ -7,6 +7,7 @@ const { initSocket } = require("./sockets");
 const authRoutes = require("./routes/authRoutes");
 const repositoryRoutes = require("./routes/repositoryRoutes");
 const messageRoutes = require("./routes/messageRoutes");
+const aiRoutes = require("./routes/aiRoutes");
 
 dotenv.config();
 
@@ -32,6 +33,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/repos", repositoryRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/ai", aiRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

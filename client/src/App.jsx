@@ -5,6 +5,7 @@ import ChatPanel from './components/ChatPanel';
 import MemberPanel from './components/MemberPanel';
 import ActivityView from './components/ActivityView';
 import { CreateRepoModal, InviteModal } from './components/Modals';
+import AiAssistant from './components/AiAssistant';
 import { STORAGE_KEY, seedState } from './data/demoData';
 
 const readState = () => {
@@ -20,6 +21,7 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [repoForm, setRepoForm] = useState({ name: '', description: '', language: 'JavaScript', isPrivate: true });
 
@@ -49,11 +51,12 @@ export default function App() {
 
   return <div className="app-shell">
     <Sidebar state={state} repo={repo} repos={repos} view={view} setView={setView} setRepoId={setRepoId} openCreate={() => setCreateOpen(true)} reset={reset} flash={flash} />
-    <main className="main"><Topbar query={query} setQuery={setQuery} openInvite={() => setInviteOpen(true)} flash={flash} />
+    <main className="main"><Topbar query={query} setQuery={setQuery} openInvite={() => setInviteOpen(true)} openAi={() => setAiOpen(true)} flash={flash} />
       {repo && <><header className="repo-header"><div><p className="eyebrow">Repositories / {repo.name}</p><h1>{repo.name}</h1><p>{repo.description}</p></div><div className="badges"><span className={`badge ${repo.isPrivate ? 'private' : 'public'}`}>{repo.isPrivate ? 'Private' : 'Public'}</span><span className="badge language">{repo.language}</span></div></header><nav className="tabs"><button className={view === 'workspace' ? 'active' : ''} onClick={() => setView('workspace')}>Workspace</button><button onClick={() => flash('Code browser is next')}>Code</button><button onClick={() => flash('Issues are next')}>Issues</button><button onClick={() => flash('Pull requests are next')}>Pull requests</button></nav>{view === 'workspace' ? <div className="workspace"><ChatPanel repo={repo} user={state.user} draft={draft} setDraft={setDraft} sendMessage={sendMessage} /><MemberPanel repo={repo} openInvite={() => setInviteOpen(true)} /></div> : <ActivityView repos={state.repos} />}</>}
     </main>
     {createOpen && <CreateRepoModal form={repoForm} setForm={setRepoForm} submit={createRepository} close={() => setCreateOpen(false)} />}
     {inviteOpen && <InviteModal repo={repo} email={inviteEmail} setEmail={setInviteEmail} submit={prepareInvite} close={() => setInviteOpen(false)} />}
+    <AiAssistant repo={repo} isOpen={aiOpen} onClose={() => setAiOpen(false)} />
     {notice && <div className="toast">✓ {notice}</div>}
   </div>;
 }

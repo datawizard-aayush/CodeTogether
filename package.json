@@ -17,6 +17,7 @@
   "author": "Ronak Kumar",
   "license": "MIT",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -26,6 +27,6 @@
     "socket.io": "^4.7.5"
   },
   "devDependencies": {
-    "nodemon": "^3.1.16"
+    "nodemon": "^3.1.9"
   }
 }
