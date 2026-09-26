@@ -1,58 +1,33 @@
-# CodeTogether
+# Colabz — MERN Stack Collaborative Project Platform
 
-CodeTogether is a GitHub + WhatsApp inspired collaboration workspace. Each repository has its own members, chat, activity feed, and project controls.
+Colabz is a full-stack developer collaboration and project management platform built with the MERN stack (MongoDB, Express.js, React.js, Node.js).
 
-## Current implementation
+## Project Structure
 
-### Frontend
+```text
+Colabz/
+├── client/          # Frontend React + Vite app
+├── server/          # Backend Node.js + Express API server
+├── learning/        # Phase-by-phase learning modules & guides
+├── docs/            # Architecture & API documentation
+├── README.md
+└── .gitignore
+```
 
-The React/Vite frontend is in `client/` and currently works without a database:
+## Phase 1 Quick Start
 
-- repository switching and search
-- local repository creation
-- repository-scoped chat
-- member presence panel
-- activity view
-- invite flow placeholder
-- browser persistence through `localStorage`
-- responsive UI
+### 1. Backend Setup
+```bash
+cd server
+npm install
+npm run dev
+```
+Server will start on `http://localhost:5000`.
 
-### Backend
-
-The root contains the Node/Express/Socket.IO backend foundation. MongoDB is deliberately optional for the current UI phase and can be connected later through the existing models and routes.
-
-## Run the frontend
-
+### 2. Frontend Setup
 ```bash
 cd client
 npm install
 npm run dev
 ```
-
-Open `http://localhost:3000`.
-
-## Run the backend later
-
-```bash
-npm install
-cp .env.example .env
-npm run dev
-```
-
-The backend exposes authentication, repository, message, and Socket.IO room foundations. Connect the frontend to those APIs when MongoDB is ready.
-
-## Structure
-
-```text
-client/src/App.jsx
-client/src/components/
-client/src/data/demoData.js
-client/src/main.jsx
-client/src/index.css
-server.js
-config/
-models/
-routes/
-middleware/
-sockets/
-```
+Client will start on `http://localhost:5173`.
